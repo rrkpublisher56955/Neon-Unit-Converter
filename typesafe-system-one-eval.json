@@ -1,0 +1,72 @@
+{
+  "$schema": "https://typesafe.ai/schemas/system-one-pipeline-v1.json",
+  "pipeline_name": "QuantumUnitStudio_SystemOne_Router",
+  "version": "1.0.0",
+  "description": "TypeSafe System One evaluation and routing architecture using the flagship Jev model for natural language intent resolution, category classification, unit normalization, and confidence gating.",
+  "model": "jev-system-one-v1",
+  "runtime_target": "browser-edge-hybrid",
+  "state_schema": {
+    "type": "object",
+    "properties": {
+      "user_query": {
+        "type": "string",
+        "description": "Raw natural language utterance entered by the user in the command bar."
+      },
+      "current_app_state": {
+        "type": "object",
+        "properties": {
+          "active_view": { "type": "string", "enum": ["converter", "arcade"] },
+          "active_category": { "type": "string" },
+          "source_unit": { "type": "string" },
+          "target_unit": { "type": "string" }
+        }
+      }
+    },
+    "required": ["user_query"]
+  },
+  "primitives": [
+    {
+      "id": "intent_router",
+      "primitive": "Choice",
+      "instructions": "Determine the primary operational intent of the user request based on semantics and keywords.",
+      "criteria": {
+        "unit_conversion": "User wants to convert quantities, measurements, temperatures, bytes, or physical dimensions between units.",
+        "math_game": "User wants to solve an arithmetic puzzle, play a calculation game, or practice mental math.",
+        "formula_explanation": "User is asking for scientific formulas, mathematical derivations, or conversion constants.",
+        "unrecognized": "Query does not express a supported intent."
+      },
+      "expected_distribution_threshold": 0.85
+    },
+    {
+      "id": "category_selector",
+      "primitive": "Choice",
+      "instructions": "When intent is 'unit_conversion', identify the exact physical dimension domain.",
+      "criteria": {
+        "length": "Meters, kilometers, centimeters, millimeters, miles, yards, feet, inches, nautical miles.",
+        "weight": "Kilograms, grams, milligrams, tons, pounds, ounces, stones, carats.",
+        "volume": "Liters, milliliters, gallons, quarts, pints, cups, fluid ounces, cubic meters, tablespoons.",
+        "time": "Seconds, milliseconds, microseconds, nanoseconds, minutes, hours, days, weeks, months, years.",
+        "data": "Bits, bytes, kilobytes, megabytes, gigabytes, terabytes, petabytes.",
+        "speed": "Meters per second, kilometers per hour, miles per hour, knots, mach, speed of light.",
+        "temp": "Celsius, Fahrenheit, Kelvin.",
+        "energy": "Joules, kilojoules, calories, kilocalories, watt-hours, kilowatt-hours, electronvolts."
+      }
+    },
+    {
+      "id": "entity_extractor",
+      "primitive": "Choice",
+      "instructions": "Select the exact candidate tokens representing numerical magnitude, source unit, and target destination unit.",
+      "selection_strategy": "candidate_span_matching"
+    },
+    {
+      "id": "confidence_gate",
+      "primitive": "Noul",
+      "instructions": "Evaluate whether the joint probability of the intent, category, and extracted entities exceeds the operational threshold to execute automated UI re-routing without human disambiguation.",
+      "threshold": 0.85,
+      "on_pass": "AUTO_EXECUTE_ROUTE",
+      "on_fail": "SHOW_DISAMBIGUATION_DRAWER"
+    }
+  ],
+  "latency_budget_ms": 25.0,
+  "memory_footprint_kb": 128
+}
